@@ -9,7 +9,7 @@ import java.io.*;
 import java.util.Random;
 
 @SuppressWarnings("serial") // Added this to stop Eclipse/compiler complaining.
-public class GameOfLife extends JFrame implements Runnable, MouseListener, MouseMotionListener {
+public class GameOfLife extends JFrame implements Runnable {
 	private static final int GAME_AREA_LENGTH = 800;
 	
 	// These two values found by trial and error.
@@ -53,8 +53,75 @@ public class GameOfLife extends JFrame implements Runnable, MouseListener, Mouse
 		
 		createBufferStrategy(2);
 		strategy = getBufferStrategy();
-		addMouseListener(this);
-		addMouseMotionListener(this);
+		
+		// Since uploading to GitHub, I have changed this class from implementing MouseListener
+		// and MouseMotionListener to anonymous inner classes to passing these two methods.
+		addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				// This needs to be recorded so that it works when you don't
+				// actually drag the mouse around but just press and release it.
+				mousePressPosition = e.getPoint();
+			}
+			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				// Use of mouseReleased means that if you accidentally click on the wrong
+				// place, you will be able to move the cursor to the right place and let go.
+				if (e.getButton() == MouseEvent.BUTTON1 && !isActive) {
+					Point mousePosition = e.getPoint();
+					if (isStartClicked(mousePosition)) {
+						isActive = true;
+						return; // Otherwise will change the state of the cell the cursor is over.
+					}
+					if (isRandomClicked(mousePosition)) {
+						randomGrid();
+						return;
+					}
+					if (isSaveClicked(mousePosition)) {
+						saveGame();
+						return;
+					}
+					if (isLoadClicked(mousePosition)) {
+						loadGame();
+						return;
+					}
+					// i.e. if there is no net movement of the cursor
+					if (mousePosition.equals(mousePressPosition)) { // == doesn't work as they are objects.
+						// Must account for offsets by subtracting them.
+						// i.e. if there was no movement of the cursor
+						int horizontal = (mousePosition.x - BORDER_SIZE_OFFSET) / 20;
+						int vertical = (mousePosition.y - TITLE_BAR_OFFSET) / 20;
+						liveCellsOnScreen[vertical][horizontal] = !liveCellsOnScreen[vertical][horizontal];
+					}
+				}
+				// else do nothing, only change status of cell if left button is clicked.
+			}
+		});
+		
+		addMouseMotionListener(new MouseMotionAdapter() {
+			@Override
+			public void mouseDragged(MouseEvent e) {
+				// Note that I have taken out e.getButton() == MouseEvent.BUTTON1 as
+				// this is only true when the button changes state (pressed/released).
+				if (isActive) {
+					return;
+				}
+				Point mousePos = e.getPoint();
+				
+				// Must account for offsets by subtracting them.
+				int horizontal = (mousePos.x - BORDER_SIZE_OFFSET) / 20;
+				int vertical = (mousePos.y - TITLE_BAR_OFFSET) / 20;
+
+				// This if statement prevents cells from rapidly switching from live to dead.
+				// If the || below was a && instead, you would not be able to draw straight lines.
+				if (newlyChangedCell[0] != vertical || newlyChangedCell[1] != horizontal) {
+					liveCellsOnScreen[vertical][horizontal] = !liveCellsOnScreen[vertical][horizontal];
+					newlyChangedCell[0] = vertical;
+					newlyChangedCell[1] = horizontal;
+				}
+			}
+		});
 		
 		Thread t = new Thread(this);
 		t.start();
@@ -209,82 +276,6 @@ public class GameOfLife extends JFrame implements Runnable, MouseListener, Mouse
 			BUTTON_WIDTH,
 			BUTTON_HEIGHT
 		);
-	}
-	
-	@Override
-	public void mouseClicked(MouseEvent e) { }
-
-	@Override
-	public void mouseEntered(MouseEvent e) { }
-
-	@Override
-	public void mouseExited(MouseEvent e) { }
-
-	@Override
-	public void mousePressed(MouseEvent e) {
-		// This needs to be recorded so that it works when you don't
-		// actually drag the mouse around but just press and release it.
-		mousePressPosition = e.getPoint();
-	}
-	
-	@Override
-	public void mouseMoved(MouseEvent e) { }
-	
-	@Override
-	public void mouseDragged(MouseEvent e) {
-		// Note that I have taken out e.getButton() == MouseEvent.BUTTON1 as
-		// this is only true when the button changes state (pressed/released).
-		if (isActive) {
-			return;
-		}
-		Point mousePos = e.getPoint();
-		
-		// Must account for offsets by subtracting them.
-		int horizontal = (mousePos.x - BORDER_SIZE_OFFSET) / 20;
-		int vertical = (mousePos.y - TITLE_BAR_OFFSET) / 20;
-
-		// This if statement prevents cells from rapidly switching from live to dead.
-		// If the || below was a && instead, you would not be able to draw straight lines.
-		if (newlyChangedCell[0] != vertical || newlyChangedCell[1] != horizontal) {
-			liveCellsOnScreen[vertical][horizontal] = !liveCellsOnScreen[vertical][horizontal];
-			newlyChangedCell[0] = vertical;
-			newlyChangedCell[1] = horizontal;
-		}
-
-	}
-
-	@Override
-	public void mouseReleased(MouseEvent e) {
-		// Use of mouseReleased means that if you accidentally click on the wrong
-		// place, you will be able to move the cursor to the right place and let go.
-		if (e.getButton() == MouseEvent.BUTTON1 && !isActive) {
-			Point mousePosition = e.getPoint();
-			if (isStartClicked(mousePosition)) {
-				isActive = true;
-				return; // Otherwise will change the state of the cell the cursor is over.
-			}
-			if (isRandomClicked(mousePosition)) {
-				randomGrid();
-				return;
-			}
-			if (isSaveClicked(mousePosition)) {
-				saveGame();
-				return;
-			}
-			if (isLoadClicked(mousePosition)) {
-				loadGame();
-				return;
-			}
-			// i.e. if there is no net movement of the cursor
-			if (mousePosition.equals(mousePressPosition)) { // == doesn't work as they are objects.
-				// Must account for offsets by subtracting them.
-				// i.e. if there was no movement of the cursor
-				int horizontal = (mousePosition.x - BORDER_SIZE_OFFSET) / 20;
-				int vertical = (mousePosition.y - TITLE_BAR_OFFSET) / 20;
-				liveCellsOnScreen[vertical][horizontal] = !liveCellsOnScreen[vertical][horizontal];
-			}
-		}
-		// else do nothing, only change status of cell if left button is clicked.
 	}
 	
 	private void saveGame() {
